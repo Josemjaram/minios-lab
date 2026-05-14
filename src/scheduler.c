@@ -252,6 +252,23 @@ void scheduler_tick(int signum) {
     // Paso 2
     pcb_t *current = &process_table[current_running];
 
+    // Guard: cmd_kill_proc puede haber recogido el zombie antes que SIGCHLD,
+    // dejando current_running apuntando a un proceso ya TERMINATED.
+    if (current->state == PROC_TERMINATED) {
+        current_running = -1;
+        if (!rq_is_empty()) {
+            int next_idx = rq_dequeue();
+            process_table[next_idx].state = PROC_RUNNING;
+            clock_gettime(CLOCK_MONOTONIC, &process_table[next_idx].last_started);
+            platform_resume_process(process_table[next_idx].pid);
+            current_running = next_idx;
+        } else {
+            timer_stop();
+            scheduler_active = 0;
+        }
+        return;
+    }
+
     // Paso 3
     platform_stop_process(current->pid);
 
