@@ -195,21 +195,25 @@ static void cmd_runpair(const char *name) {
 //   miniOS> run programs/bin/countdown 10
 // ============================================================
 static void cmd_run(const char *path, const char *arg) {
-    // Paso 1. Si path es NULL o vacio, imprimir mensaje de uso y retornar:
-    //         "Uso: run <binario> [argumento]"
+    // Paso 1
+    if (!path || strlen(path) == 0) {
+        printf("Uso: run <binario> [argumento]\n");
+        return;
+    }
 
-    // Paso 2. Validar que el archivo existe y es ejecutable:
-    //         access(path, X_OK) == 0. Si no, imprimir error y retornar.
+    // Paso 2
+    if (access(path, X_OK) != 0) {
+        printf("Error: '%s' no encontrado o no es ejecutable\n", path);
+        return;
+    }
 
-    // Paso 3. Crear el proceso:
-    //         int idx = scheduler_create_process(path, arg);
-    //         Si idx < 0, retornar (el scheduler ya imprimio el error).
+    // Paso 3
+    int idx = scheduler_create_process(path, arg);
+    if (idx < 0) return;
 
-    // Paso 4. Si el scheduler NO esta corriendo Y la ready queue NO esta vacia,
-    //         arrancar el scheduler con timer_get_slice() como slice:
-    //         scheduler_start(timer_get_slice());
-
-    (void)path; (void)arg;  // silence unused while unimplemented
+    // Paso 4
+    if (!scheduler_is_running() && !rq_is_empty())
+        scheduler_start(timer_get_slice());
 }
 
 
@@ -230,20 +234,26 @@ static void cmd_run(const char *path, const char *arg) {
 // rq_print() (que imprime algo como "Ready Queue: PID 1235 -> PID 1234").
 // ============================================================
 static void cmd_ps(void) {
-    // Paso 1. block_alarm() para proteger la lectura de process_table.
+    // Paso 1
+    block_alarm();
 
-    // Paso 2. Si process_count == 0: imprimir "No hay procesos." y retornar
-    //         (recuerda hacer unblock_alarm antes de retornar!).
+    // Paso 2
+    if (process_count == 0) {
+        printf("No hay procesos.\n");
+        unblock_alarm();
+        return;
+    }
 
-    // Paso 3. Imprimir un salto de linea + llamar pcb_print_table().
+    // Paso 3
+    printf("\n");
+    pcb_print_table();
 
-    // Paso 4. Imprimir otro salto de linea + llamar rq_print().
+    // Paso 4
+    printf("\n");
+    rq_print();
 
-    // Paso 5. unblock_alarm() al terminar.
-    //
-    // Pista: puedes implementar esto desde cero con tu propio formato
-    // si prefieres. Los campos del PCB estan en pcb_t (ver pcb.h):
-    //   pid, name, state, cpu_time_ms, wait_time_ms, context_switches
+    // Paso 5
+    unblock_alarm();
 }
 
 
